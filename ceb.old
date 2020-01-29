@@ -1,0 +1,115 @@
+import { GoogleCharts } from 'google-charts'
+
+let googleChartsLoaded = false
+export const command = (dispatch) => {
+    let proxy = "http://127.0.0.1:41417/"
+    let server = "http://ceb.joshmu.com"
+    let path = "/gsheet/signals"
+    $.get(proxy + server + path, res => {
+        let data = res.map(d => { return { btcusd: d.btcusd, ethbtc: d.ethbtc, ethusd: d.ethusd } })
+            .reduce((p, c) => {
+                p.btcusd[c.btcusd] = p.btcusd[c.btcusd] ? p.btcusd[c.btcusd] + 1 : 1
+                p.ethbtc[c.ethbtc] = p.ethbtc[c.ethbtc] ? p.ethbtc[c.ethbtc] + 1 : 1
+                p.ethusd[c.ethusd] = p.ethusd[c.ethusd] ? p.ethusd[c.ethusd] + 1 : 1
+                return p
+            }, { btcusd: {}, ethbtc: {}, ethusd: {} })
+        if (!googleChartsLoaded) GoogleCharts.load(() => {drawCharts(data)})
+        // console.log(`formatted: ${data}`)
+        data = JSON.stringify(data)
+        // console.log(`command: ${data}`)
+        dispatch(data)
+    })
+}
+
+export const refreshFrequency = 5 * 60 * 1000
+
+export const className = {
+    top: 10,
+    left: -110,
+    color: '#fff',
+    opacity: 0.5
+}
+
+export const render = ({ data, error }) => {
+
+    // console.log(`render: ${data}`)
+    return error ? (
+        <div>Something went wrong: <strong>{String(error)}</strong></div>
+    ) : (
+            <div>
+                <div id='chart1'></div>
+                {/* <p>{data}</p> */}
+            </div>
+        );
+}
+
+export const updateState = (event, previousState) => {
+    // console.log(`updateState: ${event}`)
+    return {
+        data: event
+    }
+}
+
+const drawCharts = (data) => {
+    /* Pie chart 1 */
+    data = JSON.parse(data)
+    let btcusdSignals = Object.keys(data.btcusd).map(k => [k, data.btcusd[k]]) 
+    const pie_1_data = GoogleCharts.api.visualization.arrayToDataTable([
+        ['BTCUSD', 'SIGNALS'], ...btcusdSignals
+    ]);
+    const pie_1_options = {
+        pieHole: 0.88,
+        pieSliceTextStyle: {
+            color: 'black',
+        },
+        slices: {
+            0: { color: 'green' }, 
+            1: { color: '#9DC284' }, 
+            2: { color: 'orange' },
+            3: { color: '#D13F36' },
+            4: { color: 'red' }
+        },
+        backgroundColor: {
+            fill: 'transparent'
+        },
+        legend: { position: 'none' },
+        /*
+        legend: {
+            position: 'bottom',
+            textStyle: {
+                color: 'black',
+                fontSize: 13,
+                fontName: 'EncodeSans'
+            }
+        },*/
+        title: 'BTCUSD',
+        titleTextStyle: {
+            color: 'black',
+            fontSize: 13,
+            fontName: 'EncodeSans'
+        },
+        chartArea: { left: 0, top: 0, width: '100%', height: '80%'},
+        pieSliceText: 'none',
+    };
+    const pie_1_chart = new GoogleCharts.api.visualization.PieChart(document.getElementById('chart1'));
+    pie_1_chart.draw(pie_1_data, pie_1_options);
+
+    // when chart is ready do stuff
+    google.visualization.events.addListener(pie_1_chart, 'ready', function () {
+        console.log('chart is ready...')
+        $('#chart1 path').attr('stroke-width', 0)
+        googleChartsLoaded = true
+    })
+}
+
+/*
+export const updateState = (event, previousState) => {
+  if (event.error) { return { ...previousState, warning: `We got an error: ${event.error}` };
+  }
+  const [cpuPct, processName] = event.output.split(',');
+  return {
+    cpuPct: parseFloat(cpuPct),
+    processName
+  };
+}
+*/
